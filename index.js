@@ -72,6 +72,19 @@ app.get("/inventory/:id", (req, res) => {
   res.status(200).json(item);
 });
 
+app.put("/inventory/:id", (req, res) => {
+  const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
+  const item = data.find((i) => i.id == req.params.id);
+
+  if (!item) return res.status(404).send("Not found");
+
+  if (req.body.inventory_name) item.inventory_name = req.body.inventory_name;
+  if (req.body.description) item.description = req.body.description;
+
+  fs.writeFileSync(INVENTORY_FILE, JSON.stringify(data));
+  res.status(200).json(item);
+});
+
 
 app.all("*", (req, res) => {
   res.status(405).send("Method not allowed");
