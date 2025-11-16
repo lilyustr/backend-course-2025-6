@@ -85,6 +85,29 @@ app.put("/inventory/:id", (req, res) => {
   res.status(200).json(item);
 });
 
+app.get("/inventory/:id/photo", (req, res) => {
+  const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
+  const item = data.find((i) => i.id == req.params.id);
+
+  if (!item || !item.photo) return res.status(404).send("No photo");
+
+  res.setHeader("Content-Type", "image/jpeg");
+  res.sendFile(path.resolve(path.join(CACHE, item.photo)));
+});
+
+app.put("/inventory/:id/photo", upload.single("photo"), (req, res) => {
+  const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
+  const item = data.find((i) => i.id == req.params.id);
+
+  if (!item) return res.status(404).send("Not found");
+  if (!req.file) return res.status(400).send("No photo");
+
+  item.photo = req.file.filename;
+  fs.writeFileSync(INVENTORY_FILE, JSON.stringify(data));
+
+  res.status(200).json(item);
+});
+
 app.delete("/inventory/:id", (req, res) => {
   let data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
   const index = data.findIndex((i) => i.id == req.params.id);
@@ -95,7 +118,6 @@ app.delete("/inventory/:id", (req, res) => {
   fs.writeFileSync(INVENTORY_FILE, JSON.stringify(data));
   res.status(200).send("Deleted");
 });
-
 
 app.all("*", (req, res) => {
   res.status(405).send("Method not allowed");
