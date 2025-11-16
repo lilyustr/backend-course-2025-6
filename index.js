@@ -64,6 +64,15 @@ app.get("/inventory", (req, res) => {
   res.status(200).json(data);
 });
 
+app.get("/inventory/:id", (req, res) => {
+  const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
+  const item = data.find((i) => i.id == req.params.id);
+
+  if (!item) return res.status(404).send("Not found");
+  res.status(200).json(item);
+});
+
+
 app.all("*", (req, res) => {
   res.status(405).send("Method not allowed");
 });
