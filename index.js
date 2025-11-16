@@ -119,6 +119,10 @@ app.delete("/inventory/:id", (req, res) => {
   res.status(200).send("Deleted");
 });
 
+app.get("/RegisterForm.html", (req, res) => {
+  res.sendFile(path.resolve("./RegisterForm.html"));
+});
+
 app.all("*", (req, res) => {
   res.status(405).send("Method not allowed");
 });
