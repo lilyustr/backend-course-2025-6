@@ -85,6 +85,17 @@ app.put("/inventory/:id", (req, res) => {
   res.status(200).json(item);
 });
 
+app.delete("/inventory/:id", (req, res) => {
+  let data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
+  const index = data.findIndex((i) => i.id == req.params.id);
+
+  if (index === -1) return res.status(404).send("Not found");
+
+  data.splice(index, 1);
+  fs.writeFileSync(INVENTORY_FILE, JSON.stringify(data));
+  res.status(200).send("Deleted");
+});
+
 
 app.all("*", (req, res) => {
   res.status(405).send("Method not allowed");
