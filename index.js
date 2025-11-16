@@ -1,28 +1,45 @@
+import express from "express";
+import multer from "multer";
 import { Command } from "commander";
-import fs, { existsSync } from "fs";
-import http from "http"
+import path from "path";
+import fs from "fs";
 
 const program = new Command();
-program.helpOption(false);
 
 program
-  .requiredOption('-h, --host <host>', 'server host')
-  .requiredOption('-p, --port <port>', 'server port')
-  .requiredOption('-c, --cache <path>', 'cache directory');
+  .requiredOption("-h, --host <host>", "server host")
+  .requiredOption("-p, --port <port>", "server port")
+  .requiredOption("-c, --cache <path>", "cache directory");
 
 program.parse(process.argv);
-
 const options = program.opts();
 
-if(!existsSync(options.cache)){
-    fs.mkdirSync(options.cache, {recursive: true});
+const app = express();
+const HOST = options.host;
+const PORT = options.port;
+const CACHE = options.cache;
+
+if (!fs.existsSync(CACHE)) {
+  fs.mkdirSync(CACHE, { recursive: true });
 }
 
-const server = http.createServer((req, res) => {
-    res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end("Server is running \n");
+const INVENTORY_FILE = path.join(CACHE, "inventory.json");
+if (!fs.existsSync(INVENTORY_FILE)) {
+  fs.writeFileSync(INVENTORY_FILE, "[]");
+}
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.get("/inventory", (req, res) => {
+  const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
+  res.status(200).json(data);
 });
 
-server.listen(options.port, options.host, () => {
-    console.log(`Server is running at http://${options.host}:${options.port}/`)
+app.all("*", (req, res) => {
+  res.status(405).send("Method not allowed");
+});
+
+app.listen(PORT, HOST, () => {
+  console.log(`Server running at http://${HOST}:${PORT}/`);
 });
