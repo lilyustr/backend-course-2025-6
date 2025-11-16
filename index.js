@@ -127,6 +127,21 @@ app.get("/SearchForm.html", (req, res) => {
   res.sendFile(path.resolve("./SearchForm.html"));
 });
 
+app.post("/search", (req, res) => {
+  const id = req.body.id;
+  const includePhoto = req.body.has_photo;
+
+  const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
+  const item = data.find(i => i.id == id);
+
+  if (!item) return res.status(404).send("Not found");
+
+  const result = { ...item };
+  if (!includePhoto) delete result.photo;
+
+  res.status(200).json(result);
+});
+
 app.all("*", (req, res) => {
   res.status(405).send("Method not allowed");
 });
