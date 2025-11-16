@@ -31,6 +31,34 @@ if (!fs.existsSync(INVENTORY_FILE)) {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const upload = multer({ 
+    dest: CACHE 
+});
+
+app.post("/register", upload.single("photo"), (req, res) => {
+  const name = req.body.inventory_name;
+  const desc = req.body.description || "";
+
+  if (!name) {
+    return res.status(400).send("name is required");
+  }
+
+  const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
+  const id = data.length + 1;
+
+  const item = {
+    id: id,
+    inventory_name: name,
+    description: desc,
+    photo: req.file ? req.file.filename : null,
+  };
+
+  data.push(item);
+  fs.writeFileSync(INVENTORY_FILE, JSON.stringify(data));
+  res.status(201).json(item);
+});
+
+
 app.get("/inventory", (req, res) => {
   const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
   res.status(200).json(data);
