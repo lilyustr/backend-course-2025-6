@@ -64,8 +64,18 @@ if (!fs.existsSync(INVENTORY_FILE)) {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/uploads", express.static(CACHE));
 
-const upload = multer({ dest: CACHE });
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, CACHE);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage });
 
 /**
  * @openapi
@@ -105,18 +115,20 @@ app.post("/register", upload.single("photo"), (req, res) => {
   }
 
   const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
-  const id = data.length + 1;
+  const maxId = data.length > 0 ? Math.max(...data.map(item => item.id)) : 0;
+  const photoName = req.file ? req.file.filename : null;
 
   const item = {
-    id: id,
+    id: maxId + 1,
     inventory_name: name,
     description: desc,
-    photo: req.file ? req.file.filename : null,
+    photo: photoName
   };
 
   data.push(item);
   fs.writeFileSync(INVENTORY_FILE, JSON.stringify(data));
-  res.status(201).json(item);
+  const photoUrl = photoName ? `${req.protocol}://${req.get("host")}/uploads/${photoName}` : null;
+  res.status(201).json({ ...item, photo: photoUrl });
 });
 
 /**
@@ -130,7 +142,12 @@ app.post("/register", upload.single("photo"), (req, res) => {
  */
 app.get("/inventory", (req, res) => {
   const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
-  res.status(200).json(data);
+  // Повертаємо URL для всіх фото
+  const dataWithUrls = data.map(item => ({
+    ...item,
+    photo: item.photo ? `${req.protocol}://${req.get("host")}/uploads/${item.photo}` : null
+  }));
+  res.status(200).json(dataWithUrls);
 });
 
 /**
@@ -153,9 +170,9 @@ app.get("/inventory", (req, res) => {
 app.get("/inventory/:id", (req, res) => {
   const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
   const item = data.find((i) => i.id == req.params.id);
-
   if (!item) return res.status(404).send("Not found");
-  res.status(200).json(item);
+  const photoUrl = item.photo ? `${req.protocol}://${req.get("host")}/uploads/${item.photo}` : null;
+  res.status(200).json({ ...item, photo: photoUrl });
 });
 
 /**
@@ -188,15 +205,17 @@ app.get("/inventory/:id", (req, res) => {
  */
 app.put("/inventory/:id", (req, res) => {
   const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
-  const item = data.find((i) => i.id == req.params.id);
-
+  const item = data.find(i => i.id == req.params.id);
   if (!item) return res.status(404).send("Not found");
 
   if (req.body.inventory_name) item.inventory_name = req.body.inventory_name;
   if (req.body.description) item.description = req.body.description;
 
+  if (req.file) item.photo = req.file.filename;
+
   fs.writeFileSync(INVENTORY_FILE, JSON.stringify(data));
-  res.status(200).json(item);
+  const photoUrl = item.photo ? `${req.protocol}://${req.get("host")}/uploads/${item.photo}` : null;
+  res.status(200).json({ ...item, photo: photoUrl });
 });
 
 /**
@@ -222,8 +241,8 @@ app.get("/inventory/:id/photo", (req, res) => {
 
   if (!item || !item.photo) return res.status(404).send("No photo");
 
-  res.setHeader("Content-Type", "image/jpeg");
-  res.sendFile(path.resolve(path.join(CACHE, item.photo)));
+  const filePath = path.join(CACHE, item.photo);
+  res.sendFile(path.resolve(filePath));
 });
 
 /**
@@ -347,16 +366,21 @@ app.get("/SearchForm.html", (req, res) => {
  *         description: Не знайдено
  */
 app.post("/search", (req, res) => {
-  const id = req.body.id;
-  const includePhoto = req.body.has_photo;
+  const id = Number(req.body.id);
+  const includePhoto = req.body.has_photo === "on"; // якщо чекбокс відмічено
 
   const data = JSON.parse(fs.readFileSync(INVENTORY_FILE));
-  const item = data.find(i => i.id == id);
+  const item = data.find(i => i.id === id);
 
   if (!item) return res.status(404).send("Not found");
 
   const result = { ...item };
-  if (!includePhoto) delete result.photo;
+
+  if (includePhoto && result.photo) {
+    result.photo = `${req.protocol}://${req.get("host")}/uploads/${result.photo}`;
+  } else {
+    delete result.photo;
+  }
 
   res.status(200).json(result);
 });
